@@ -57,7 +57,7 @@ class Augustus:
             augObj = AugustusObject()
             augObj.load_sim_snapshot(simfile)
             augObj.load_caesar_snapshot(caesarfile)
-            redshift = augObj.cosmo_params['redshift']
+            redshift = np.round(augObj.cosmo_params['redshift'],2)
             self.data[redshift] = augObj
             self.redshifts.append(redshift)
     
@@ -71,9 +71,50 @@ class Augustus:
     def find_halos(self, redshift):
         for z in self.redshifts:
             # Call object method for each redshift
-            self.data[z].identify_halos()
+            self.data[z].identify_halos()  
             
-    
+    # Method that finds galaxies/halos which satisfy various conditions
+    def search(self,type,condition,redshift):
+        # INPUTS
+        #   + type (string) --> either 'galaxy' or 'halo' depending on which object you are looking for
+        #   + condition (string) --> condition for which objects are filtered to satisfy
+        #   + redshift (float) --> redshift at which you want to search the dataset
+        # OUTPUTS
+        #   + IDs (list of ints) --> list containing all IDs of objects which satisifed the condition
+
+        # Check that data exists for requested redshift
+        if redshift not in self.redshifts:
+            new_redshift = self.redshifts[np.argmin(np.abs(self.redshifts-redshift))]
+            print("\n **WARNING** \n")
+            print("Requested redshift for search not present in datasets. Using closest available redshift...")
+            print(f"Requested redshift = {redshift}")
+            print(f"Closest available redshift = {new_redshift}\n\n")
+            redshift = new_redshift
+
+        # Retrieve augustus object
+        aug = self.data[redshift]
+
+        # If member search not already completed for object in question, do it now
+        if type == 'galaxy':
+            if not aug.completedGalaxyIdentification:
+                aug.identify_galaxies()
+        elif type == 'halo':
+            if not aug.completedHaloIdentification:
+                aug.identify_halos()
+        else:
+            print("You must supply either 'galaxy' or 'halo' to the search function.")
+            print(f"Unkown type '{type}' encountered!")
+            exit(0)
+
+        # Obtain the galaxy IDs where the requested condition is satisfied
+        if type == 'galaxy':
+            None
+        elif type == 'halo':
+            None
+        else:
+            print("You must supply either 'galaxy' or 'halo' to the search function.")
+            print(f"Unkown type '{type}' encountered!")
+            exit(0)
 
     
 # This class is each individual augustus object
@@ -86,6 +127,10 @@ class AugustusObject:
         self.yt_obj = yt_obj
         self.caesar_obj = caesar_obj
         self.cosmo_params = {}
+
+        # Flags for if analysis procedures have already been carried out
+        self.completedGalaxyIdentification = False
+        self.completedHaloIdentification   = False
         
         # >>> These are populated by the identify_galaxies method >>>
         # List of galaxy IDs to index the dictionaries at
@@ -139,6 +184,9 @@ class AugustusObject:
         
     # Method to find all galaxies and store the corresponding particle data for each
     def identify_galaxies(self):
+        if self.completedGalaxyIdentification:
+            return
+        
         self.galaxies = self.caesar_obj.galaxies
         # Loop over each galaxy
         for gal in self.galaxies:
@@ -150,9 +198,13 @@ class AugustusObject:
             self.starsInGalaxies[galID]      = gal.slist
             self.darkMatterInGalaxies[galID] = gal.dmlist
             self.blackHolesInGalaxies[galID] = gal.bhlist
+        self.completedGalaxyIdentification = True
             
     # Method to find all halos and store the corresponding particle data for each
     def identify_halos(self):
+        if self.completedHaloIdentification:
+            return
+
         self.halos = self.caesar_obj.halos
         # Loop over each halo
         for halo in self.halos:
@@ -164,3 +216,4 @@ class AugustusObject:
             self.starsInHalos[haloID]      = halo.slist
             self.darkMatterInHalos[haloID] = halo.dmlist
             self.blackHolesInHalos[haloID] = halo.bhlist
+        self.completedHaloIdentification = True
